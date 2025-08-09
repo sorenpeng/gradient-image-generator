@@ -1,7 +1,7 @@
 // lib/styles/flower.ts
 // Flower style field / layer specification for SVG radial renderer
-import { RNG } from "../rng";
 import { PaletteSpec } from "../palettes/flower";
+import { hashSeed, mulberry32 } from "../random";
 
 export interface RadialLayer {
   id: string;
@@ -18,7 +18,11 @@ export interface FieldSpec {
   layers: RadialLayer[];
 }
 
-export function buildFlowerField(rng: RNG, palette: PaletteSpec): FieldSpec {
+export function buildFlowerField(
+  seed: string | number,
+  palette: PaletteSpec
+): FieldSpec {
+  const rng = mulberry32(hashSeed(String(seed) + "|field"));
   const layerCount = 3 + Math.floor(rng() * 5); // 3-7
   const axisAngle = rng() * Math.PI * 2;
   const layers: RadialLayer[] = [];

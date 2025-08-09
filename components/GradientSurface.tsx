@@ -1,6 +1,5 @@
 "use client";
 import React, { useMemo } from "react";
-import { createRng } from "../lib/rng";
 import { buildFlowerPalette } from "../lib/palettes/flower";
 import { buildFlowerField } from "../lib/styles/flower";
 import { SVGRadialRenderer } from "../lib/renderers/svgRadial";
@@ -20,9 +19,8 @@ export const GradientSurface: React.FC<GradientSurfaceProps> = ({
   width = 1000,
   height = 1000,
 }) => {
-  const rng = useMemo(() => createRng(seed), [seed]);
-  const palette = useMemo(() => buildFlowerPalette(rng), [rng]);
-  const field = useMemo(() => buildFlowerField(rng, palette), [rng, palette]);
+  const palette = useMemo(() => buildFlowerPalette(seed), [seed]);
+  const field = useMemo(() => buildFlowerField(seed, palette), [seed, palette]);
 
   if (renderer === "svg") {
     return (
