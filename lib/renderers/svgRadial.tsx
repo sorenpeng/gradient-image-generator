@@ -42,7 +42,7 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
       onExport,
       onExportPng,
       pngScale = 1,
-      showInternalExportButtons = true,
+      showInternalExportButtons = false,
       addNoise = false,
       noiseStrength = 0.25,
     },
@@ -94,7 +94,7 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
         ctx.clearRect(0, 0, targetW, targetH);
         ctx.drawImage(img, 0, 0, targetW, targetH);
         if (addNoise && noiseStrength > 0)
-          applyDitherNoise(ctx, targetW, targetH, noiseStrength);
+          applyOrderedDither(ctx, targetW, targetH, noiseStrength);
         const blob: Blob | null = await new Promise((r) =>
           canvas.toBlob((b) => r(b), "image/png")
         );
@@ -187,22 +187,35 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
   }
 );
 
-function applyDitherNoise(
+// 8x8 Bayer matrix (values 0..63). Provides ordered dithering approximating blue-noise distribution when scaled.
+const BAYER_8 = [
+  0, 32, 8, 40, 2, 34, 10, 42, 48, 16, 56, 24, 50, 18, 58, 26, 12, 44, 4, 36,
+  14, 46, 6, 38, 60, 28, 52, 20, 62, 30, 54, 22, 3, 35, 11, 43, 1, 33, 9, 41,
+  51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23,
+  61, 29, 53, 21,
+];
+
+function applyOrderedDither(
   ctx: CanvasRenderingContext2D,
   w: number,
   h: number,
   strength: number
 ) {
-  const imageData = ctx.getImageData(0, 0, w, h);
-  const d = imageData.data;
-  const amp = 30 * strength; // max +/- value
-  for (let i = 0; i < d.length; i += 4) {
-    const n = (Math.random() * 2 - 1) * amp;
-    d[i] = clampByte(d[i] + n);
-    d[i + 1] = clampByte(d[i + 1] + n);
-    d[i + 2] = clampByte(d[i + 2] + n);
+  const data = ctx.getImageData(0, 0, w, h);
+  const d = data.data;
+  const n = 8;
+  const scale = strength * 24; // amplitude
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const idx = (y * w + x) * 4;
+      const t = BAYER_8[(y & 7) * 8 + (x & 7)] / 63 - 0.5; // -0.5..0.5
+      const offset = t * scale;
+      d[idx] = clampByte(d[idx] + offset);
+      d[idx + 1] = clampByte(d[idx + 1] + offset);
+      d[idx + 2] = clampByte(d[idx + 2] + offset);
+    }
   }
-  ctx.putImageData(imageData, 0, 0);
+  ctx.putImageData(data, 0, 0);
 }
 function clampByte(v: number) {
   return v < 0 ? 0 : v > 255 ? 255 : v;

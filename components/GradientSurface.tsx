@@ -1,15 +1,20 @@
 "use client";
 import React, { useMemo, useRef, useImperativeHandle, forwardRef } from "react";
 import { buildFlowerPalette, PaletteSpec } from "../lib/palettes/flower";
+import { buildDreamlikePalette } from "../lib/palettes/dreamlike";
+import { buildSkyPalette } from "../lib/palettes/sky";
 import { buildFlowerField, FieldSpec } from "../lib/styles/flower";
+import { buildDreamlikeField } from "../lib/styles/dreamlike";
+import { buildSkyField } from "../lib/styles/sky";
 import { SVGRadialRenderer, SVGRadialHandle } from "../lib/renderers/svgRadial";
 
 export interface GradientSurfaceHandle {
   exportSVG(): string | null;
   exportPNG(scale?: number): Promise<Blob | null>;
 }
+export type StyleType = "flower" | "dreamlike" | "sky";
 export interface GradientSurfaceProps {
-  styleType?: "flower";
+  styleType?: StyleType;
   renderer?: "svg";
   seed: string | number;
   width?: number;
@@ -21,6 +26,31 @@ export interface GradientSurfaceProps {
   pngScale?: number;
   addNoise?: boolean;
   noiseStrength?: number;
+}
+
+function buildPaletteByStyle(style: StyleType, seed: string | number) {
+  switch (style) {
+    case "dreamlike":
+      return buildDreamlikePalette(seed);
+    case "sky":
+      return buildSkyPalette(seed);
+    default:
+      return buildFlowerPalette(seed);
+  }
+}
+function buildFieldByStyle(
+  style: StyleType,
+  seed: string | number,
+  palette: PaletteSpec
+) {
+  switch (style) {
+    case "dreamlike":
+      return buildDreamlikeField(seed, palette);
+    case "sky":
+      return buildSkyField(seed, palette);
+    default:
+      return buildFlowerField(seed, palette);
+  }
 }
 
 export const GradientSurface = forwardRef<
@@ -44,17 +74,13 @@ export const GradientSurface = forwardRef<
   ref
 ) {
   const palette = useMemo(() => {
-    if (paletteExternal) return paletteExternal; // external control
-    if (styleType === "flower") return buildFlowerPalette(seed);
-    return buildFlowerPalette(seed);
+    if (paletteExternal) return paletteExternal;
+    return buildPaletteByStyle(styleType, seed);
   }, [paletteExternal, seed, styleType]);
-
   const field = useMemo(() => {
     if (fieldSpec) return fieldSpec;
-    if (styleType === "flower") return buildFlowerField(seed, palette);
-    return buildFlowerField(seed, palette);
+    return buildFieldByStyle(styleType, seed, palette);
   }, [fieldSpec, seed, styleType, palette]);
-
   const innerRef = useRef<SVGRadialHandle | null>(null);
   useImperativeHandle(
     ref,

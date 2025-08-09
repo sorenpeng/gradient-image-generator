@@ -4,10 +4,14 @@ import { buildFlowerPalette, PaletteSpec } from "../lib/palettes/flower";
 import { buildFlowerField, FieldSpec } from "../lib/styles/flower";
 import { GradientSurface, GradientSurfaceHandle } from "./GradientSurface";
 import { hashSeed } from "../lib/random";
+import { buildDreamlikePalette } from "../lib/palettes/dreamlike";
+import { buildSkyPalette } from "../lib/palettes/sky";
+import { buildDreamlikeField } from "../lib/styles/dreamlike";
+import { buildSkyField } from "../lib/styles/sky";
 
 export interface GradientControllerProps {
   initialSeed?: string;
-  styleType?: "flower";
+  styleType?: "flower" | "dreamlike" | "sky";
   renderer?: "svg";
   width?: number;
   height?: number;
@@ -26,6 +30,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   height = 1200,
 }) => {
   const [seed, setSeed] = useState(initialSeed);
+  const [style, setStyle] = useState<"flower" | "dreamlike" | "sky">(styleType);
   const [lock, setLock] = useState<LockState>({ palette: false, field: false });
   const [manualPalette, setManualPalette] = useState<PaletteSpec | undefined>();
   const [manualField, setManualField] = useState<FieldSpec | undefined>();
@@ -38,17 +43,23 @@ export const GradientController: React.FC<GradientControllerProps> = ({
 
   const palette = useMemo(() => {
     if (lock.palette && manualPalette) return manualPalette;
-    const p = buildFlowerPalette(seed);
+    let p: PaletteSpec;
+    if (style === "dreamlike") p = buildDreamlikePalette(seed);
+    else if (style === "sky") p = buildSkyPalette(seed);
+    else p = buildFlowerPalette(seed);
     if (lock.palette === true && !manualPalette) setManualPalette(p);
     return p;
-  }, [seed, lock.palette, manualPalette]);
+  }, [seed, lock.palette, manualPalette, style]);
 
   const field = useMemo(() => {
     if (lock.field && manualField) return manualField;
-    const f = buildFlowerField(seed, palette);
+    let f: FieldSpec;
+    if (style === "dreamlike") f = buildDreamlikeField(seed, palette);
+    else if (style === "sky") f = buildSkyField(seed, palette);
+    else f = buildFlowerField(seed, palette);
     if (lock.field === true && !manualField) setManualField(f);
     return f;
-  }, [seed, lock.field, manualField, palette]);
+  }, [seed, lock.field, manualField, palette, style]);
 
   const randomSeed = useCallback(
     (mode: "all" | "unlocked") => {
@@ -81,6 +92,12 @@ export const GradientController: React.FC<GradientControllerProps> = ({
     if (key === "field" && lock.field) setManualField(undefined);
   }
 
+  function changeStyle(s: "flower" | "dreamlike" | "sky") {
+    setStyle(s);
+    setManualPalette(undefined);
+    setManualField(undefined);
+  }
+
   // derive small preview swatches
   const swatches = palette.css.slice(0, 8);
 
@@ -89,16 +106,16 @@ export const GradientController: React.FC<GradientControllerProps> = ({
     if (svg)
       triggerDownload(
         new Blob([svg], { type: "image/svg+xml;charset=utf-8" }),
-        `gradient_${styleType}_${seed}.svg`
+        `gradient_${style}_${seed}.svg`
       );
-    setLastExportName(`gradient_${styleType}_${seed}.svg`);
+    setLastExportName(`gradient_${style}_${seed}.svg`);
   }
   async function doExportPNG() {
     try {
       setExporting(true);
       const blob = await surfaceRef.current?.exportPNG(pngScale);
       if (blob) {
-        const name = `gradient_${styleType}_${seed}_${pngScale}x.png`;
+        const name = `gradient_${style}_${seed}_${pngScale}x.png`;
         triggerDownload(blob, name);
         setLastExportName(name);
       }
@@ -112,7 +129,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
       <GradientSurface
         ref={surfaceRef}
         seed={seed}
-        styleType={styleType}
+        styleType={style}
         renderer={renderer}
         width={width}
         height={height}
@@ -130,7 +147,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
           display: "flex",
           flexDirection: "column",
           gap: 8,
-          maxWidth: 320,
+          maxWidth: 340,
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -141,6 +158,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
               alignItems: "center",
               gap: 8,
               marginBottom: 8,
+              flexWrap: "wrap",
             }}
           >
             <strong style={{ fontSize: 14 }}>Gradient Controller</strong>
@@ -154,6 +172,15 @@ export const GradientController: React.FC<GradientControllerProps> = ({
             >
               seed:{seed}
             </code>
+            <select
+              value={style}
+              onChange={(e) => changeStyle(e.target.value as any)}
+              style={selectStyle}
+            >
+              <option value="flower">flower</option>
+              <option value="dreamlike">dreamlike</option>
+              <option value="sky">sky</option>
+            </select>
           </div>
           <div
             style={{
