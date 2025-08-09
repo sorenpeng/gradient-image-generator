@@ -1,8 +1,8 @@
 "use client";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { buildFlowerPalette, PaletteSpec } from "../lib/palettes/flower";
 import { buildFlowerField, FieldSpec } from "../lib/styles/flower";
-import { GradientSurface } from "./GradientSurface";
+import { GradientSurface, GradientSurfaceHandle } from "./GradientSurface";
 import { hashSeed } from "../lib/random";
 
 export interface GradientControllerProps {
@@ -30,6 +30,11 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   const [manualPalette, setManualPalette] = useState<PaletteSpec | undefined>();
   const [manualField, setManualField] = useState<FieldSpec | undefined>();
   const [lastExportName, setLastExportName] = useState<string | null>(null);
+  const [pngScale, setPngScale] = useState(2);
+  const [addNoise, setAddNoise] = useState(true);
+  const [noiseStrength, setNoiseStrength] = useState(0.25);
+  const [exporting, setExporting] = useState(false);
+  const surfaceRef = useRef<GradientSurfaceHandle | null>(null);
 
   const palette = useMemo(() => {
     if (lock.palette && manualPalette) return manualPalette;
@@ -79,23 +84,33 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   // derive small preview swatches
   const swatches = palette.css.slice(0, 8);
 
-  function handleExportSVG(svgText: string) {
-    const name = `gradient_${styleType}_${seed}.svg`;
-    triggerDownload(
-      new Blob([svgText], { type: "image/svg+xml;charset=utf-8" }),
-      name
-    );
-    setLastExportName(name);
+  function doExportSVG() {
+    const svg = surfaceRef.current?.exportSVG();
+    if (svg)
+      triggerDownload(
+        new Blob([svg], { type: "image/svg+xml;charset=utf-8" }),
+        `gradient_${styleType}_${seed}.svg`
+      );
+    setLastExportName(`gradient_${styleType}_${seed}.svg`);
   }
-  function handleExportPNG(blob: Blob) {
-    const name = `gradient_${styleType}_${seed}.png`;
-    triggerDownload(blob, name);
-    setLastExportName(name);
+  async function doExportPNG() {
+    try {
+      setExporting(true);
+      const blob = await surfaceRef.current?.exportPNG(pngScale);
+      if (blob) {
+        const name = `gradient_${styleType}_${seed}_${pngScale}x.png`;
+        triggerDownload(blob, name);
+        setLastExportName(name);
+      }
+    } finally {
+      setExporting(false);
+    }
   }
 
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <GradientSurface
+        ref={surfaceRef}
         seed={seed}
         styleType={styleType}
         renderer={renderer}
@@ -103,9 +118,9 @@ export const GradientController: React.FC<GradientControllerProps> = ({
         height={height}
         palette={palette}
         fieldSpec={field}
-        onExportSVG={handleExportSVG}
-        onExportPNG={handleExportPNG}
-        pngScale={2}
+        pngScale={pngScale}
+        addNoise={addNoise}
+        noiseStrength={noiseStrength}
       />
       <div
         style={{
@@ -115,20 +130,11 @@ export const GradientController: React.FC<GradientControllerProps> = ({
           display: "flex",
           flexDirection: "column",
           gap: 8,
-          maxWidth: 280,
+          maxWidth: 320,
           fontFamily: "system-ui, sans-serif",
         }}
       >
-        <div
-          style={{
-            backdropFilter: "blur(10px)",
-            background: "rgba(255,255,255,0.55)",
-            border: "1px solid #ffffff50",
-            padding: 12,
-            borderRadius: 14,
-            boxShadow: "0 4px 16px -4px rgba(0,0,0,0.25)",
-          }}
-        >
+        <div style={panelStyle}>
           <div
             style={{
               display: "flex",
@@ -170,77 +176,104 @@ export const GradientController: React.FC<GradientControllerProps> = ({
               />
             ))}
           </div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-            <div style={{ display: "flex", gap: 6 }}>
+          <div style={row}>
+            <button onClick={() => randomSeed("all")} style={btnStyle}>
+              🎲 全部
+            </button>
+            <button onClick={() => randomSeed("unlocked")} style={btnStyle}>
+              🎯 未锁
+            </button>
+          </div>
+          <div style={row}>
+            <button
+              onClick={() => toggleLock("palette")}
+              style={{
+                ...btnStyle,
+                background: lock.palette ? "#ffd54f" : btnStyle.background,
+              }}
+            >
+              {lock.palette ? "🔒 Palette" : "🔓 Palette"}
+            </button>
+            <button
+              onClick={() => toggleLock("field")}
+              style={{
+                ...btnStyle,
+                background: lock.field ? "#ffd54f" : btnStyle.background,
+              }}
+            >
+              {lock.field ? "🔒 Field" : "🔓 Field"}
+            </button>
+          </div>
+          <div style={row}>
+            <button
+              style={btnStyle}
+              onClick={() => navigator.clipboard.writeText(seed.toString())}
+            >
+              📋 复制
+            </button>
+            <button
+              style={btnStyle}
+              onClick={() => {
+                const url = new URL(window.location.href);
+                url.searchParams.set("seed", seed.toString());
+                window.history.replaceState(null, "", url.toString());
+              }}
+            >
+              🔗 URL
+            </button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              flexDirection: "column",
+              gap: 6,
+              marginTop: 6,
+            }}
+          >
+            <label style={labelStyle}>
+              PNG Scale
+              <select
+                value={pngScale}
+                onChange={(e) => setPngScale(Number(e.target.value))}
+                style={selectStyle}
+              >
+                <option value={1}>1x</option>
+                <option value={2}>2x</option>
+                <option value={4}>4x</option>
+                <option value={8}>8x</option>
+              </select>
+            </label>
+            <label style={labelStyle}>
+              Noise
+              <input
+                type="checkbox"
+                checked={addNoise}
+                onChange={(e) => setAddNoise(e.target.checked)}
+              />
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={noiseStrength}
+                onChange={(e) => setNoiseStrength(Number(e.target.value))}
+                disabled={!addNoise}
+              />
+            </label>
+            <div style={row}>
               <button
-                onClick={() => randomSeed("all")}
                 style={btnStyle}
-                title="完全随机所有参数"
-              >
-                🎲 全部随机
-              </button>
-              <button
-                onClick={() => randomSeed("unlocked")}
-                style={btnStyle}
-                title="只随机未锁定参数"
-              >
-                🎯 未锁定
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 6 }}>
-              <button
-                onClick={() => toggleLock("palette")}
-                style={{
-                  ...btnStyle,
-                  background: lock.palette ? "#ffd54f" : btnStyle.background,
-                }}
-                title="锁定/解锁调色板"
-              >
-                {lock.palette ? "🔒 Palette" : "🔓 Palette"}
-              </button>
-              <button
-                onClick={() => toggleLock("field")}
-                style={{
-                  ...btnStyle,
-                  background: lock.field ? "#ffd54f" : btnStyle.background,
-                }}
-                title="锁定/解锁形态"
-              >
-                {lock.field ? "🔒 Field" : "🔓 Field"}
-              </button>
-            </div>
-            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
-              <button
-                style={btnStyle}
-                onClick={() => navigator.clipboard.writeText(seed.toString())}
-              >
-                📋 复制 seed
-              </button>
-              <button
-                style={btnStyle}
-                onClick={() => {
-                  const url = new URL(window.location.href);
-                  url.searchParams.set("seed", seed.toString());
-                  window.history.replaceState(null, "", url.toString());
-                }}
-              >
-                🔗 更新URL
-              </button>
-              <button
-                style={btnStyle}
-                onClick={() => {
-                  const evt = new Event("request-export-svg");
-                }}
+                onClick={doExportSVG}
+                disabled={exporting}
               >
                 ⬇️ SVG
               </button>
               <button
                 style={btnStyle}
-                onClick={() => {
-                  const evt = new Event("request-export-png");
-                }}
+                onClick={doExportPNG}
+                disabled={exporting}
               >
-                🖼 PNG
+                {exporting ? "… 导出中" : "🖼 PNG"}
               </button>
             </div>
             {lastExportName && (
@@ -271,6 +304,25 @@ const btnStyle: React.CSSProperties = {
   border: "1px solid #00000022",
   cursor: "pointer",
   backdropFilter: "blur(3px)",
+};
+const row: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  flexWrap: "wrap",
+  alignItems: "center",
+};
+const labelStyle: React.CSSProperties = {
+  display: "flex",
+  gap: 6,
+  alignItems: "center",
+  fontSize: 12,
+};
+const selectStyle: React.CSSProperties = {
+  padding: "4px 6px",
+  borderRadius: 6,
+  border: "1px solid #0003",
+  background: "#fff",
+  fontSize: 12,
 };
 
 function triggerDownload(blob: Blob, filename: string) {
