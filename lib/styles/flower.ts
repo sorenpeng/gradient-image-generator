@@ -23,19 +23,19 @@ export function buildFlowerField(
   palette: PaletteSpec
 ): FieldSpec {
   const rng = mulberry32(hashSeed(String(seed) + "|field"));
-  const layerCount = 3 + Math.floor(rng() * 5); // 3-7
+  const layerCount = 4 + Math.floor(rng() * 5); // 4-8 for richer overlap
   const axisAngle = rng() * Math.PI * 2;
   const layers: RadialLayer[] = [];
   for (let i = 0; i < layerCount; i++) {
     const t = i / layerCount;
-    const dist = (0.08 + t * 0.35) * (0.4 + rng() * 0.9);
-    const dir = axisAngle + (rng() - 0.5) * 0.9; // scatter along axis
+    const dist = (0.05 + t * 0.3) * (0.35 + rng() * 0.95); // allow tighter clustering
+    const dir = axisAngle + (rng() - 0.5) * 1.0; // more scatter
     const cx = 0.5 + Math.cos(dir) * dist;
     const cy = 0.5 + Math.sin(dir) * dist;
-    const radius = 0.45 + t * 0.55 + rng() * 0.15;
-    const scale = { x: 1 + (rng() - 0.5) * 0.6, y: 1 + (rng() - 0.5) * 0.6 };
-    const rotation = rng() * Math.PI;
-    const opacity = 0.35 + (1 - t) * 0.55;
+    const radius = 0.4 + t * 0.6 + rng() * 0.18; // slightly larger variation
+    const scale = { x: 1 + (rng() - 0.5) * 0.75, y: 1 + (rng() - 0.5) * 0.75 };
+    const rotation = rng() * Math.PI * 2;
+    const opacity = 0.42 + (1 - t) * 0.55; // higher base opacity
     const a = Math.floor(rng() * palette.stops.length);
     const b =
       (a + 1 + Math.floor(rng() * (palette.stops.length - 1))) %
@@ -48,7 +48,7 @@ export function buildFlowerField(
       rotation,
       opacity,
       stopIndices: [a, b],
-      focusJitter: 0.05 + rng() * 0.15,
+      focusJitter: 0.06 + rng() * 0.18,
     });
   }
   return { layers };
