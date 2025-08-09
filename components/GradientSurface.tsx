@@ -26,6 +26,8 @@ export interface GradientSurfaceProps {
   pngScale?: number;
   addNoise?: boolean;
   noiseStrength?: number;
+  animateMode?: "none" | "drift" | "pulse" | "parallax";
+  mouseInfluence?: number;
 }
 
 function buildPaletteByStyle(style: StyleType, seed: string | number) {
@@ -70,6 +72,8 @@ export const GradientSurface = forwardRef<
     pngScale = 1,
     addNoise = false,
     noiseStrength = 0.25,
+    animateMode = "drift",
+    mouseInfluence = 0.6,
   },
   ref
 ) {
@@ -106,6 +110,8 @@ export const GradientSurface = forwardRef<
         pngScale={pngScale}
         addNoise={addNoise}
         noiseStrength={noiseStrength}
+        animateMode={animateMode}
+        mouseInfluence={mouseInfluence}
       />
     );
   }

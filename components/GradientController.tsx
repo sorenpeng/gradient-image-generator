@@ -39,6 +39,10 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   const [addNoise, setAddNoise] = useState(true);
   const [noiseStrength, setNoiseStrength] = useState(0.25);
   const [exporting, setExporting] = useState(false);
+  const [animateMode, setAnimateMode] = useState<
+    "none" | "drift" | "pulse" | "parallax"
+  >("drift");
+  const [mouseInfluence, setMouseInfluence] = useState(0.6);
   const surfaceRef = useRef<GradientSurfaceHandle | null>(null);
 
   const palette = useMemo(() => {
@@ -138,6 +142,8 @@ export const GradientController: React.FC<GradientControllerProps> = ({
         pngScale={pngScale}
         addNoise={addNoise}
         noiseStrength={noiseStrength}
+        animateMode={animateMode}
+        mouseInfluence={mouseInfluence}
       />
       <div
         style={{
@@ -285,6 +291,30 @@ export const GradientController: React.FC<GradientControllerProps> = ({
                 value={noiseStrength}
                 onChange={(e) => setNoiseStrength(Number(e.target.value))}
                 disabled={!addNoise}
+              />
+            </label>
+            <label style={labelStyle}>
+              Anim
+              <select
+                value={animateMode}
+                onChange={(e) => setAnimateMode(e.target.value as any)}
+                style={selectStyle}
+              >
+                <option value="none">none</option>
+                <option value="drift">drift</option>
+                <option value="pulse">pulse</option>
+                <option value="parallax">parallax</option>
+              </select>
+            </label>
+            <label style={labelStyle}>
+              Pointer
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={mouseInfluence}
+                onChange={(e) => setMouseInfluence(Number(e.target.value))}
               />
             </label>
             <div style={row}>

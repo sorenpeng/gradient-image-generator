@@ -13,6 +13,7 @@ export interface SVGRadialHandle {
   exportSVG(): string | null;
   exportPNG(scale?: number): Promise<Blob | null>;
 }
+export type AnimateMode = "none" | "drift" | "pulse" | "parallax";
 export interface SVGRadialProps {
   palette: PaletteSpec;
   field: FieldSpec;
@@ -20,13 +21,15 @@ export interface SVGRadialProps {
   height: number;
   seed: string | number;
   animate?: boolean;
+  animateMode?: AnimateMode;
+  mouseInfluence?: number;
   className?: string;
   onExport?(svgText: string): void;
   onExportPng?(blob: Blob): void;
   pngScale?: number;
   showInternalExportButtons?: boolean;
   addNoise?: boolean;
-  noiseStrength?: number; // 0..1
+  noiseStrength?: number;
 }
 
 export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
@@ -38,6 +41,8 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
       height,
       seed,
       animate = true,
+      animateMode = "drift",
+      mouseInfluence = 0.6,
       className,
       onExport,
       onExportPng,
@@ -49,20 +54,100 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
     ref
   ) {
     const svgRef = useRef<SVGSVGElement | null>(null);
+    const containerRef = useRef<HTMLDivElement | null>(null);
+    const gradientsRef = useRef<SVGGradientElement[]>([]);
+    const radiiRef = useRef<SVGGradientElement[]>([]); // not used separately; kept for future
+    const pointerTarget = useRef({ x: 0, y: 0 });
+    const pointerState = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
+
+    function onPointerMove(e: React.PointerEvent) {
+      if (!containerRef.current) return;
+      const rect = containerRef.current.getBoundingClientRect();
+      const nx = (e.clientX - rect.left) / rect.width - 0.5;
+      const ny = (e.clientY - rect.top) / rect.height - 0.5;
+      pointerTarget.current.x = nx;
+      pointerTarget.current.y = ny;
+    }
 
     useEffect(() => {
       if (!animate) return;
       let af = 0;
-      const start = performance.now();
-      const loop = (t: number) => {
-        const k = (t - start) / 1000;
-        const svg = svgRef.current;
-        if (svg) svg.style.setProperty("--t", k.toString());
+      let prevT = performance.now();
+      const stiffness = 120;
+      const damping = 18;
+      const baseR = Math.min(width, height);
+      const loop = (now: number) => {
+        const dt = Math.min(0.05, (now - prevT) / 1000);
+        prevT = now;
+        const ps = pointerState.current;
+        const pt = pointerTarget.current;
+        // spring integration (semi-implicit Euler)
+        const ax = (pt.x - ps.x) * stiffness - ps.vx * damping;
+        const ay = (pt.y - ps.y) * stiffness - ps.vy * damping;
+        ps.vx += ax * dt;
+        ps.vy += ay * dt;
+        ps.x += ps.vx * dt;
+        ps.y += ps.vy * dt;
+        const t = now / 1000;
+        const layers = field.layers;
+        const gEls = gradientsRef.current;
+        for (let i = 0; i < layers.length; i++) {
+          const layer = layers[i];
+          const g = gEls[i];
+          if (!g) continue;
+          const depth = i / (layers.length - 1 || 1);
+          let cx = layer.center.x * width;
+          let cy = layer.center.y * height;
+          let r = layer.radius * baseR;
+          if (
+            animateMode === "drift" ||
+            animateMode === "parallax" ||
+            animateMode === "pulse"
+          ) {
+            const driftAmp = 0.02; // relative
+            if (animateMode === "drift" || animateMode === "parallax") {
+              cx += Math.sin(t * 0.15 + i) * driftAmp * width * (0.3 + depth);
+              cy +=
+                Math.cos(t * 0.18 + i * 0.7) *
+                driftAmp *
+                height *
+                (0.3 + depth * 0.8);
+            }
+            if (animateMode === "parallax" || animateMode === "drift") {
+              const parallax = mouseInfluence * (0.15 + depth * 0.85);
+              cx += ps.x * parallax * width * 0.3;
+              cy += ps.y * parallax * height * 0.3;
+            } else if (animateMode === "pulse") {
+              // pointer only lightly influences pulse
+              const parallax = mouseInfluence * 0.3;
+              cx += ps.x * parallax * width * 0.25;
+              cy += ps.y * parallax * height * 0.25;
+            }
+            if (animateMode === "pulse") {
+              const pulse = 1 + Math.sin(t * 2 + i * 0.6) * 0.05;
+              r *= pulse;
+            }
+          }
+          // Update attributes directly
+          g.setAttribute("cx", cx.toFixed(3));
+          g.setAttribute("cy", cy.toFixed(3));
+          g.setAttribute("r", r.toFixed(3));
+          g.setAttribute("fx", cx.toFixed(3));
+          g.setAttribute("fy", cy.toFixed(3));
+        }
         af = requestAnimationFrame(loop);
       };
       af = requestAnimationFrame(loop);
       return () => cancelAnimationFrame(af);
-    }, [animate, seed]);
+    }, [
+      animate,
+      animateMode,
+      mouseInfluence,
+      field.layers,
+      width,
+      height,
+      seed,
+    ]);
 
     function exportSVGInternal(): string | null {
       if (!svgRef.current) return null;
@@ -70,7 +155,6 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
       onExport?.(xml);
       return xml;
     }
-
     async function exportPNGInternal(scale?: number): Promise<Blob | null> {
       if (!svgRef.current) return null;
       const xml = new XMLSerializer().serializeToString(svgRef.current);
@@ -103,17 +187,31 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
       } finally {
         URL.revokeObjectURL(url);
       }
-      return null;
     }
 
     useImperativeHandle(
       ref,
       () => ({ exportSVG: exportSVGInternal, exportPNG: exportPNGInternal }),
-      [palette, field, seed, pngScale, addNoise, noiseStrength]
+      [
+        palette,
+        field,
+        seed,
+        pngScale,
+        addNoise,
+        noiseStrength,
+        animateMode,
+        mouseInfluence,
+      ]
     );
 
     return (
-      <div className={className} style={{ position: "relative" }}>
+      <div
+        ref={containerRef}
+        onPointerMove={onPointerMove}
+        onPointerDown={onPointerMove}
+        className={className}
+        style={{ position: "relative" }}
+      >
         <svg
           ref={svgRef}
           viewBox={`0 0 ${width} ${height}`}
@@ -134,6 +232,9 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
                   key={id}
                   id={id}
                   gradientUnits="userSpaceOnUse"
+                  ref={(el) => {
+                    if (el) gradientsRef.current[i] = el;
+                  }}
                   cx={layer.center.x * width}
                   cy={layer.center.y * height}
                   r={layer.radius * Math.min(width, height)}
@@ -145,27 +246,15 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
             })}
           </defs>
           {field.layers.map((layer, i) => (
-            <g
+            <rect
               key={i}
-              transform={`translate(${layer.center.x * width} ${
-                layer.center.y * height
-              }) rotate(${(layer.rotation * 57.2958).toFixed(
-                2
-              )}) scale(${layer.scale.x.toFixed(3)} ${layer.scale.y.toFixed(
-                3
-              )}) translate(${-(layer.center.x * width)} ${-(
-                layer.center.y * height
-              )})`}
-            >
-              <rect
-                x={0}
-                y={0}
-                width={width}
-                height={height}
-                fill={`url(#g_${i})`}
-                opacity={layer.opacity.toFixed(3)}
-              />
-            </g>
+              x={0}
+              y={0}
+              width={width}
+              height={height}
+              fill={`url(#g_${i})`}
+              opacity={layer.opacity.toFixed(3)}
+            />
           ))}
         </svg>
         {showInternalExportButtons && (
@@ -194,7 +283,6 @@ const BAYER_8 = [
   51, 19, 59, 27, 49, 17, 57, 25, 15, 47, 7, 39, 13, 45, 5, 37, 63, 31, 55, 23,
   61, 29, 53, 21,
 ];
-
 function applyOrderedDither(
   ctx: CanvasRenderingContext2D,
   w: number,
@@ -203,16 +291,15 @@ function applyOrderedDither(
 ) {
   const data = ctx.getImageData(0, 0, w, h);
   const d = data.data;
-  const n = 8;
-  const scale = strength * 24; // amplitude
+  const scale = strength * 24;
   for (let y = 0; y < h; y++) {
     for (let x = 0; x < w; x++) {
       const idx = (y * w + x) * 4;
-      const t = BAYER_8[(y & 7) * 8 + (x & 7)] / 63 - 0.5; // -0.5..0.5
-      const offset = t * scale;
-      d[idx] = clampByte(d[idx] + offset);
-      d[idx + 1] = clampByte(d[idx + 1] + offset);
-      d[idx + 2] = clampByte(d[idx + 2] + offset);
+      const t = BAYER_8[(y & 7) * 8 + (x & 7)] / 63 - 0.5;
+      const off = t * scale;
+      d[idx] = clampByte(d[idx] + off);
+      d[idx + 1] = clampByte(d[idx + 1] + off);
+      d[idx + 2] = clampByte(d[idx + 2] + off);
     }
   }
   ctx.putImageData(data, 0, 0);
