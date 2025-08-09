@@ -12,6 +12,9 @@ export interface GradientSurfaceProps {
   height?: number;
   palette?: PaletteSpec;
   fieldSpec?: FieldSpec;
+  onExportSVG?(svgText: string): void;
+  onExportPNG?(blob: Blob): void;
+  pngScale?: number;
 }
 
 export const GradientSurface: React.FC<GradientSurfaceProps> = ({
@@ -22,6 +25,9 @@ export const GradientSurface: React.FC<GradientSurfaceProps> = ({
   height = 1000,
   palette: paletteExternal,
   fieldSpec,
+  onExportSVG,
+  onExportPNG,
+  pngScale = 1,
 }) => {
   const palette = useMemo(() => {
     if (paletteExternal) return paletteExternal; // external control
@@ -43,6 +49,9 @@ export const GradientSurface: React.FC<GradientSurfaceProps> = ({
         width={width}
         height={height}
         seed={seed}
+        onExport={onExportSVG}
+        onExportPng={onExportPNG}
+        pngScale={pngScale}
       />
     );
   }

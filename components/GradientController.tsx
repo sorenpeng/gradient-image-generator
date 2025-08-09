@@ -29,6 +29,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   const [lock, setLock] = useState<LockState>({ palette: false, field: false });
   const [manualPalette, setManualPalette] = useState<PaletteSpec | undefined>();
   const [manualField, setManualField] = useState<FieldSpec | undefined>();
+  const [lastExportName, setLastExportName] = useState<string | null>(null);
 
   const palette = useMemo(() => {
     if (lock.palette && manualPalette) return manualPalette;
@@ -78,6 +79,20 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   // derive small preview swatches
   const swatches = palette.css.slice(0, 8);
 
+  function handleExportSVG(svgText: string) {
+    const name = `gradient_${styleType}_${seed}.svg`;
+    triggerDownload(
+      new Blob([svgText], { type: "image/svg+xml;charset=utf-8" }),
+      name
+    );
+    setLastExportName(name);
+  }
+  function handleExportPNG(blob: Blob) {
+    const name = `gradient_${styleType}_${seed}.png`;
+    triggerDownload(blob, name);
+    setLastExportName(name);
+  }
+
   return (
     <div style={{ position: "relative", width: "100%", height: "100%" }}>
       <GradientSurface
@@ -88,6 +103,9 @@ export const GradientController: React.FC<GradientControllerProps> = ({
         height={height}
         palette={palette}
         fieldSpec={field}
+        onExportSVG={handleExportSVG}
+        onExportPNG={handleExportPNG}
+        pngScale={2}
       />
       <div
         style={{
@@ -97,7 +115,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
           display: "flex",
           flexDirection: "column",
           gap: 8,
-          maxWidth: 260,
+          maxWidth: 280,
           fontFamily: "system-ui, sans-serif",
         }}
       >
@@ -191,7 +209,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
                 {lock.field ? "🔒 Field" : "🔓 Field"}
               </button>
             </div>
-            <div style={{ display: "flex", gap: 6 }}>
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
               <button
                 style={btnStyle}
                 onClick={() => navigator.clipboard.writeText(seed.toString())}
@@ -208,7 +226,28 @@ export const GradientController: React.FC<GradientControllerProps> = ({
               >
                 🔗 更新URL
               </button>
+              <button
+                style={btnStyle}
+                onClick={() => {
+                  const evt = new Event("request-export-svg");
+                }}
+              >
+                ⬇️ SVG
+              </button>
+              <button
+                style={btnStyle}
+                onClick={() => {
+                  const evt = new Event("request-export-png");
+                }}
+              >
+                🖼 PNG
+              </button>
             </div>
+            {lastExportName && (
+              <div style={{ fontSize: 10, opacity: 0.65 }}>
+                Saved: {lastExportName}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -216,6 +255,14 @@ export const GradientController: React.FC<GradientControllerProps> = ({
   );
 };
 
+const panelStyle: React.CSSProperties = {
+  backdropFilter: "blur(10px)",
+  background: "rgba(255,255,255,0.55)",
+  border: "1px solid #ffffff50",
+  padding: 12,
+  borderRadius: 14,
+  boxShadow: "0 4px 16px -4px rgba(0,0,0,0.25)",
+};
 const btnStyle: React.CSSProperties = {
   fontSize: 12,
   padding: "6px 10px",
@@ -225,3 +272,11 @@ const btnStyle: React.CSSProperties = {
   cursor: "pointer",
   backdropFilter: "blur(3px)",
 };
+
+function triggerDownload(blob: Blob, filename: string) {
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+}

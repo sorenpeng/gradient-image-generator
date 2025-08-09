@@ -13,6 +13,8 @@ export interface SVGRadialProps {
   animate?: boolean;
   className?: string;
   onExport?(svgText: string): void;
+  onExportPng?(blob: Blob): void;
+  pngScale?: number;
 }
 
 export const SVGRadialRenderer: React.FC<SVGRadialProps> = ({
@@ -24,6 +26,8 @@ export const SVGRadialRenderer: React.FC<SVGRadialProps> = ({
   animate = true,
   className,
   onExport,
+  onExportPng,
+  pngScale = 1,
 }) => {
   const ref = useRef<SVGSVGElement | null>(null);
 
@@ -34,19 +38,45 @@ export const SVGRadialRenderer: React.FC<SVGRadialProps> = ({
     const loop = (t: number) => {
       const k = (t - start) / 1000;
       const svg = ref.current;
-      if (svg) {
-        svg.style.setProperty("--t", k.toString());
-      }
+      if (svg) svg.style.setProperty("--t", k.toString());
       af = requestAnimationFrame(loop);
     };
     af = requestAnimationFrame(loop);
     return () => cancelAnimationFrame(af);
   }, [animate, seed]);
 
-  function handleExport() {
+  function exportSVG() {
     if (!ref.current) return;
     const xml = new XMLSerializer().serializeToString(ref.current);
     onExport?.(xml);
+  }
+
+  function exportPNG() {
+    if (!ref.current) return;
+    const xml = new XMLSerializer().serializeToString(ref.current);
+    const svgBlob = new Blob([xml], { type: "image/svg+xml;charset=utf-8" });
+    const url = URL.createObjectURL(svgBlob);
+    const img = new Image();
+    const targetW = Math.round(width * pngScale);
+    const targetH = Math.round(height * pngScale);
+    img.onload = () => {
+      const canvas = document.createElement("canvas");
+      canvas.width = targetW;
+      canvas.height = targetH;
+      const ctx = canvas.getContext("2d");
+      if (ctx) {
+        ctx.clearRect(0, 0, targetW, targetH);
+        ctx.drawImage(img, 0, 0, targetW, targetH);
+        canvas.toBlob((blob) => {
+          if (blob) onExportPng?.(blob);
+          URL.revokeObjectURL(url);
+        }, "image/png");
+      } else {
+        URL.revokeObjectURL(url);
+      }
+    };
+    img.onerror = () => URL.revokeObjectURL(url);
+    img.src = url;
   }
 
   return (
@@ -105,12 +135,18 @@ export const SVGRadialRenderer: React.FC<SVGRadialProps> = ({
           </g>
         ))}
       </svg>
-      <button
-        style={{ position: "absolute", top: 8, right: 8 }}
-        onClick={handleExport}
+      <div
+        style={{
+          position: "absolute",
+          top: 8,
+          right: 8,
+          display: "flex",
+          gap: 6,
+        }}
       >
-        Export SVG
-      </button>
+        <button onClick={exportSVG}>Export SVG</button>
+        <button onClick={exportPNG}>PNG</button>
+      </div>
     </div>
   );
 };
