@@ -211,10 +211,10 @@ export const GradientController: React.FC<GradientControllerProps> = ({
           </div>
           <div style={row}>
             <button onClick={() => randomSeed("all")} style={btnStyle}>
-              🎲 全部
+              🎲 All
             </button>
             <button onClick={() => randomSeed("unlocked")} style={btnStyle}>
-              🎯 未锁
+              🎯 Unlocked
             </button>
           </div>
           <div style={row}>
@@ -242,7 +242,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
               style={btnStyle}
               onClick={() => navigator.clipboard.writeText(seed.toString())}
             >
-              📋 复制
+              📋 Copy
             </button>
             <button
               style={btnStyle}
@@ -330,7 +330,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
                 onClick={doExportPNG}
                 disabled={exporting}
               >
-                {exporting ? "… 导出中" : "🖼 PNG"}
+                {exporting ? "Exporting…" : "🖼 PNG"}
               </button>
             </div>
             {lastExportName && (
