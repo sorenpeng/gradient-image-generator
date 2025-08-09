@@ -174,6 +174,7 @@ export const GradientController: React.FC<GradientControllerProps> = ({
                 padding: "2px 4px",
                 background: "#00000010",
                 borderRadius: 4,
+                color: "#1d1d21",
               }}
             >
               seed:{seed}
@@ -347,20 +348,25 @@ export const GradientController: React.FC<GradientControllerProps> = ({
 
 const panelStyle: React.CSSProperties = {
   backdropFilter: "blur(10px)",
-  background: "rgba(255,255,255,0.55)",
-  border: "1px solid #ffffff50",
+  background: "rgba(255,255,255,0.82)", // more opaque for contrast
+  border: "1px solid rgba(255,255,255,0.9)",
   padding: 12,
   borderRadius: 14,
-  boxShadow: "0 4px 16px -4px rgba(0,0,0,0.25)",
+  boxShadow: "0 6px 18px -4px rgba(0,0,0,0.3)",
+  color: "#1d1d21",
+  lineHeight: 1.25,
 };
 const btnStyle: React.CSSProperties = {
   fontSize: 12,
   padding: "6px 10px",
   borderRadius: 8,
-  background: "#ffffffb0",
-  border: "1px solid #00000022",
+  background: "#ffffffd8",
+  border: "1px solid #c5c5cc",
   cursor: "pointer",
   backdropFilter: "blur(3px)",
+  color: "#1f1f24",
+  fontWeight: 500,
+  boxShadow: "0 1px 2px rgba(0,0,0,0.12)",
 };
 const row: React.CSSProperties = {
   display: "flex",
@@ -373,13 +379,17 @@ const labelStyle: React.CSSProperties = {
   gap: 6,
   alignItems: "center",
   fontSize: 12,
+  color: "#1f1f24",
+  fontWeight: 500,
 };
 const selectStyle: React.CSSProperties = {
   padding: "4px 6px",
   borderRadius: 6,
-  border: "1px solid #0003",
-  background: "#fff",
+  border: "1px solid #b4b4bb",
+  background: "#ffffff",
   fontSize: 12,
+  color: "#1d1d21",
+  fontWeight: 500,
 };
 
 function triggerDownload(blob: Blob, filename: string) {
