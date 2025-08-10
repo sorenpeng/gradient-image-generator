@@ -18,7 +18,7 @@ export function lerp(a: number, b: number, t: number) {
   return a + (b - a) * t;
 }
 export function lerpAngle(a: number, b: number, t: number) {
-  let d = ((b - a + 540) % 360) - 180; // shortest path
+  const d = ((b - a + 540) % 360) - 180; // shortest path
   return a + d * t;
 }
 export function lerpOKLCH(a: OKLCH, b: OKLCH, t: number): OKLCH {

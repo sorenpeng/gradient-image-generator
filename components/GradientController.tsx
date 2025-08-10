@@ -181,7 +181,9 @@ export const GradientController: React.FC<GradientControllerProps> = ({
             </code>
             <select
               value={style}
-              onChange={(e) => changeStyle(e.target.value as any)}
+              onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                changeStyle(e.target.value as "flower" | "dreamlike" | "sky")
+              }
               style={selectStyle}
             >
               <option value="flower">flower</option>
@@ -298,7 +300,11 @@ export const GradientController: React.FC<GradientControllerProps> = ({
               Anim
               <select
                 value={animateMode}
-                onChange={(e) => setAnimateMode(e.target.value as any)}
+                onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                  setAnimateMode(
+                    e.target.value as "none" | "drift" | "pulse" | "parallax"
+                  )
+                }
                 style={selectStyle}
               >
                 <option value="none">none</option>

@@ -1,13 +1,12 @@
-"use client";
-import { useSearchParams } from "next/navigation";
-import { GradientController } from "@/components/GradientController";
+import { Suspense } from "react";
+import PageClient from "@/components/PageClient";
 
 export default function Page() {
-  const sp = useSearchParams();
-  const seed = sp.get("seed") || "demo";
   return (
     <main style={{ height: "100dvh", width: "100vw", position: "relative" }}>
-      <GradientController initialSeed={seed} />
+      <Suspense fallback={null}>
+        <PageClient />
+      </Suspense>
     </main>
   );
 }

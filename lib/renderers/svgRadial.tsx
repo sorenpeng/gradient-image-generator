@@ -56,7 +56,6 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
     const svgRef = useRef<SVGSVGElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const gradientsRef = useRef<SVGGradientElement[]>([]);
-    const radiiRef = useRef<SVGGradientElement[]>([]); // not used separately; kept for future
     const pointerTarget = useRef({ x: 0, y: 0 });
     const pointerState = useRef({ x: 0, y: 0, vx: 0, vy: 0 });
 
@@ -201,6 +200,8 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
         noiseStrength,
         animateMode,
         mouseInfluence,
+        exportSVGInternal,
+        exportPNGInternal,
       ]
     );
 
