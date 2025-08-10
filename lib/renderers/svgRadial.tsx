@@ -188,22 +188,10 @@ export const SVGRadialRenderer = forwardRef<SVGRadialHandle, SVGRadialProps>(
       }
     }
 
-    useImperativeHandle(
-      ref,
-      () => ({ exportSVG: exportSVGInternal, exportPNG: exportPNGInternal }),
-      [
-        palette,
-        field,
-        seed,
-        pngScale,
-        addNoise,
-        noiseStrength,
-        animateMode,
-        mouseInfluence,
-        exportSVGInternal,
-        exportPNGInternal,
-      ]
-    );
+    useImperativeHandle(ref, () => ({
+      exportSVG: exportSVGInternal,
+      exportPNG: exportPNGInternal,
+    }));
 
     return (
       <div
